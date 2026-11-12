@@ -1,0 +1,88 @@
+# ===== 薪酬变更版本与双人复核 · 现场调研智能体系统：统一配置文件 =====
+# 说明：所有密钥、模型地址、路径、阈值都只在本文件出现，代码里禁止出现字面量。
+# 说明：形如 ${XXX} 的值在 app/config.py 启动时替换为同名环境变量，配置文件不存明文密钥。
+# 说明：环境变量可覆盖少量运行参数，便于验证脚本使用临时数据库与 mock 模型，不改动本文件。
+
+# 应用基础信息
+app:                                                        # 应用级配置段
+  name: "salary-change-dual-review"                         # 应用名，写入审计日志的来源标识
+  debug: false                                              # 调试开关，生产必须为 false，避免堆栈泄露
+
+# HTTP 服务监听配置
+server:                                                     # 服务级配置段
+  host: "127.0.0.1"                                        # 只监听回环地址，默认不对外网暴露
+  port: 8000                                                # 监听端口，uvicorn 启动时会读取
+
+# 数据库配置（零中间件，使用 Python 标准库 sqlite3）
+db:                                                         # 数据库配置段
+  path: "data/zhuxinrong.db"                                # SQLite 文件路径，相对项目根目录
+  busy_timeout_ms: 5000                                     # 并发写锁等待时间，防止双人同时复核时报 database is locked
+  seed_employee:                                            # 首次启动写入的演示员工与薪酬基线，仅用于自测
+    emp_id: "E001"                                          # 工号
+    name_mask: "张*"                                        # 脱敏姓名，明文姓名与证件号一律不入库
+    dept: "研发部"                                          # 部门
+    grade: "P6"                                             # 职级
+    base_salary_cents: 2000000                              # 月薪 20000.00 元，以分为单位的整数
+    currency: "CNY"                                         # 币种
+
+# 安全与权限配置
+security:                                                   # 安全配置段
+  token_secret: "${APP_TOKEN_SECRET}"                       # HMAC 签名密钥，必须来自环境变量，泄露等于任何人可伪造身份
+  token_ttl_seconds: 3600                                   # 令牌有效期（秒），过期后必须重新签发
+  users:                                                    # 本地自测用身份清单，生产应替换为统一身份系统
+    - actor_id: "u_operator"                               # 经办人账号 ID
+      name: "经办员"                                        # 显示名，不参与鉴权判断
+      roles: ["OPERATOR"]                                   # 只能创建与提交变更，不能复核
+      pin_env: "APP_PIN_OPERATOR"                           # 签发令牌时校验的口令来自该环境变量
+    - actor_id: "u_reviewer_a"                             # 第一复核人账号 ID
+      name: "复核员甲"                                      # 显示名
+      roles: ["REVIEWER"]                                   # 只能复核，不能创建变更与生效
+      pin_env: "APP_PIN_REVIEWER_A"                         # 口令环境变量名
+    - actor_id: "u_reviewer_b"                             # 第二复核人账号 ID，用于验证两人不同
+      name: "复核员乙"                                      # 显示名
+      roles: ["REVIEWER"]                                   # 角色同上
+      pin_env: "APP_PIN_REVIEWER_B"                         # 口令环境变量名
+    - actor_id: "u_admin"                                   # 管理员账号 ID
+      name: "管理员"                                        # 显示名
+      roles: ["ADMIN"]                                      # 可查看明文、可生效、可维护知识库
+      pin_env: "APP_PIN_ADMIN"                              # 口令环境变量名
+
+# 本地部署千问模型配置（OpenAI 兼容 /v1/chat/completions）
+llm:                                                        # 大模型配置段
+  mode: "mock"                                              # mock=离线自测；http=真正调用本地千问，验证脚本无需外部服务即可跑通
+  base_url: "http://127.0.0.1:8001/v1"                     # 本地 vLLM / Ollama 的 OpenAI 兼容端点，禁止填公网地址
+  model: "qwen2.5-7b-instruct"                              # 模型名，由本地推理服务决定
+  api_key_env: "APP_LLM_API_KEY"                            # 本地网关若需鉴权则从该环境变量取，可为空
+  timeout_seconds: 30                                       # 单次调用超时，防止 harness 被慢模型拖死
+  max_retries: 2                                            # 失败重试次数，超过后调研判定失败，绝不自动生效
+  max_tokens: 1024                                          # 单次最大生成 token，控制成本与输出长度
+  temperature: 0.2                                          # 低温保证结构化输出稳定，减少模型自由发挥
+  allowed_hosts: ["127.0.0.1", "localhost", "::1", "10.", "192.168.", "172.16."]  # 内网白名单前缀，公网 host 一律拒绝
+
+# 调研 harness 配置
+harness:                                                    # 智能体编排配置段
+  max_rounds: 6                                             # 单场调研最大轮数，防止模型死循环无限调用
+  kb_top_k: 3                                               # 每次知识库检索返回的最大条目数
+  require_human_confirm: true                               # 结论必须人工确认才挂到版本，模型输出永不自动生效
+
+# 知识库配置（SQLite FTS5 全文检索，不引入向量库/中间件）
+kb:                                                         # 知识库配置段
+  fts_tokenizer: "trigram"                                  # trigram 支持中文子串检索；不支持时自动降级为 LIKE
+  seed_documents:                                           # 首次启动写入的制度文档，便于开箱自测
+    - title: "薪酬调整审批规范"                              # 文档标题
+      source: "internal-policy"                             # 来源标识，写入审计引用
+      content: "薪酬变更须由经办人提交版本，经两名不同复核人独立复核通过后方可生效。调薪需说明依据、生效月份与现场调研结论，禁止以口头通知代替书面记录。复核人不得为经办人本人，且两名复核人不得为同一人。"  # 制度正文
+    - title: "现场调研取证要点"                              # 文档标题
+      source: "internal-policy"                             # 来源标识
+      content: "现场调研需确认：员工岗位与职级是否变更、绩效结论是否有书面依据、调薪生效月份、是否涉及异地或社保基数联动、员工本人是否知悉。取证结论必须由现场负责人确认后方可归档。"  # 制度正文
+
+# 提示词配置
+prompts:                                                    # 提示词配置段
+  file: "docs/提示词.md"                                    # 提示词统一维护在 docs，代码不硬编码任何提示词文本
+
+# 数据红线（硬约束，代码在关键路径逐条校验）
+data_redline:                                               # 数据红线配置段
+  mask_salary_for_non_admin: true                           # 非管理员只能看到脱敏金额，防止薪酬扩散
+  forbid_public_llm_host: true                              # 模型地址必须是内网，防止高敏数据外发
+  audit_plaintext_salary: false                             # 审计日志禁止写入明文金额，只写摘要哈希
+  pii_hash_algorithm: "sha256"                              # 证件等敏感字段只存哈希，禁止明文落库
