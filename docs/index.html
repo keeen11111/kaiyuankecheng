@@ -1,0 +1,154 @@
+<!DOCTYPE html>                                                <!-- 声明 HTML5 文档类型 -->
+<html lang="zh-CN">                                             <!-- 页面语言为简体中文 -->
+<head>                                                          <!-- 文档头部开始 -->
+<meta charset="UTF-8">                                          <!-- 统一 UTF-8，保证中文不乱码 -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0">  <!-- 适配不同屏幕宽度 -->
+<title>薪酬变更版本与双人复核 · 现场调研智能体系统｜交付总览</title>  <!-- 浏览器标签标题 -->
+<style>                                                         <!-- 内联样式，无外部依赖、无 CDN -->
+:root { --bg:#f5f7fa; --card:#ffffff; --ink:#1f2430; --sub:#5b6473; --line:#e2e7ef; --accent:#2f6feb; --ok:#0f8a53; --warn:#b54708; --soft:#eef3fd; }  /* 浅色主题变量，深色文字 */
+* { box-sizing:border-box; }                                    /* 统一盒模型，避免宽度计算偏差 */
+body { margin:0; padding:28px 32px 56px; background:var(--bg); color:var(--ink); font-family:"Microsoft YaHei","PingFang SC",Arial,sans-serif; line-height:1.6; }  /* 页面底色与正文字体 */
+h1 { font-size:26px; margin:0 0 6px; }                           /* 主标题字号与间距 */
+h2 { font-size:17px; margin:0 0 14px; padding-left:10px; border-left:4px solid var(--accent); }  /* 区块标题带蓝色竖线 */
+p.sub { color:var(--sub); margin:0 0 18px; font-size:14px; }    /* 副标题使用次级灰色 */
+.badges { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:22px; }  /* 徽章横向排列可换行 */
+.badge { background:var(--soft); color:var(--accent); border:1px solid #cddcfb; border-radius:999px; padding:4px 12px; font-size:12px; }  /* 胶囊状徽章 */
+.badge.ok { background:#e9f7ef; color:var(--ok); border-color:#bfe6cf; }  /* 验证通过的绿色徽章 */
+.grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:14px; margin-bottom:22px; }  /* 自适应卡片网格 */
+.card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px 18px; }  /* 白色卡片容器 */
+.card h3 { margin:0 0 8px; font-size:15px; }                     /* 卡片标题 */
+.card p { margin:0; color:var(--sub); font-size:13px; }          /* 卡片说明文字 */
+.section { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:18px 20px; margin-bottom:18px; }  /* 内容区块 */
+.layer { display:flex; align-items:center; gap:10px; padding:8px 12px; margin-bottom:8px; border:1px solid var(--line); border-radius:8px; background:#fbfcfe; font-size:13px; }  /* 架构层条目 */
+.layer b { min-width:150px; color:var(--accent); }               /* 层名高亮 */
+.flow { display:flex; flex-wrap:wrap; align-items:center; gap:6px; font-size:12px; }  /* 状态机横向流程 */
+.node { background:var(--soft); border:1px solid #cddcfb; border-radius:6px; padding:5px 10px; color:var(--accent); }  /* 状态节点 */
+.node.end { background:#e9f7ef; border-color:#bfe6cf; color:var(--ok); }  /* 终态节点用绿色 */
+.node.stop { background:#fdeeee; border-color:#f5c9c9; color:#b42318; }  /* 驳回节点用红色 */
+.arrow { color:var(--sub); }                                     /* 流程箭头颜色 */
+table { width:100%; border-collapse:collapse; font-size:13px; } /* 接口表格 */
+th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); }  /* 单元格间距与分隔线 */
+th { background:#f7f9fc; color:var(--sub); font-weight:600; }   /* 表头底色 */
+code { background:#f2f5fa; padding:1px 5px; border-radius:4px; font-size:12px; }  /* 行内代码样式 */
+pre { background:#1e2530; color:#e6edf7; padding:14px 16px; border-radius:8px; overflow-x:auto; font-size:12px; line-height:1.7; }  /* 命令代码块 */
+ul { margin:0; padding-left:20px; font-size:13px; color:var(--sub); }  /* 列表缩进与颜色 */
+li { margin-bottom:5px; }                                        /* 列表项间距 */
+a { color:var(--accent); }                                       /* 链接颜色 */
+.foot { color:var(--sub); font-size:12px; text-align:center; margin-top:24px; }  /* 页脚说明 */
+</style>                                                        <!-- 样式结束 -->
+</head>                                                         <!-- 文档头部结束 -->
+<body>                                                          <!-- 页面主体开始 -->
+<h1>薪酬变更版本与双人复核 · 现场调研智能体系统</h1>            <!-- 主标题 -->
+<p class="sub">FastAPI + Python 3.11+ · 自研 harness · SQLite FTS5 知识库 · 本地部署千问　｜　交付总览页</p>  <!-- 副标题 -->
+<div class="badges">                                            <!-- 状态徽章区 -->
+<span class="badge ok">三阶段验证 ALL PASS</span>               <!-- 验证结果徽章 -->
+<span class="badge">分支 main · 提交 37fe83c</span>            <!-- 仓库信息徽章 -->
+<span class="badge">21 个文件 / 3384 行</span>                  <!-- 代码规模徽章 -->
+<span class="badge">接口 14 个 · 统一响应结构</span>            <!-- 接口数量徽章 -->
+<span class="badge">零中间件</span>                             <!-- 技术栈约束徽章 -->
+</div>                                                          <!-- 徽章区结束 -->
+
+<div class="grid">                                              <!-- 概览卡片区 -->
+<div class="card"><h3>版本化，不覆盖</h3><p>每次调薪生成一个不可变版本，保存变更前后快照与差异；原薪酬记录在双人复核通过并由管理员生效前绝不改动。</p></div>  <!-- 版本化说明 -->
+<div class="card"><h3>双人且不同人</h3><p>经办人不得自复核，两名复核人不得为同一人，一人只能签一次；四道防线从路由层一直卡到数据库触发器。</p></div>  <!-- 复核说明 -->
+<div class="card"><h3>人在回路</h3><p>harness 产出的模型结论只能是建议，状态固定 WAIT_CONFIRM，必须具名人员显式确认后才能进入复核。</p></div>  <!-- 人工确认说明 -->
+<div class="card"><h3>数据不出内网</h3><p>模型端点强制本机／私网白名单，外发上下文只含脱敏字段，薪酬恒为 ****；审计只写摘要哈希不写明文金额。</p></div>  <!-- 数据红线说明 -->
+</div>                                                          <!-- 卡片区结束 -->
+
+<div class="section">                                           <!-- 架构分层区块 -->
+<h2>架构分层</h2>                                               <!-- 区块标题 -->
+<div class="layer"><b>HTTP 入口</b><span>app/main.py：路由、角色依赖、事务边界、统一响应封装</span></div>  <!-- 入口层 -->
+<div class="layer"><b>业务服务层</b><span>app/service.py：状态机、双人复核、人工确认、乐观锁生效、脱敏视图</span></div>  <!-- 服务层 -->
+<div class="layer"><b>能力层</b><span>db.py / audit.py / kb.py / harness.py：DDL、审计哈希链、FTS5 检索、多轮工具编排</span></div>  <!-- 能力层 -->
+<div class="layer"><b>模型与提示词</b><span>llm.py（本地千问 + 内网地址审查）、prompts.py（读取 docs/提示词.md）</span></div>  <!-- 模型层 -->
+<div class="layer"><b>配置</b><span>config.yaml 唯一配置源，${ENV_VAR} 占位 + 环境变量注入密钥与模型地址</span></div>  <!-- 配置层 -->
+</div>                                                          <!-- 架构区块结束 -->
+
+<div class="section">                                           <!-- 状态机区块 -->
+<h2>版本状态机（8 个状态）</h2>                                 <!-- 区块标题 -->
+<div class="flow">                                              <!-- 流程容器 -->
+<span class="node">DRAFT 草稿</span><span class="arrow">→</span>  <!-- 草稿节点 -->
+<span class="node">RESEARCHING 调研中</span><span class="arrow">→</span>  <!-- 调研中节点 -->
+<span class="node">RESEARCH_DONE 结论已确认</span><span class="arrow">→</span>  <!-- 确认节点 -->
+<span class="node">PENDING_REVIEW 待第一签</span><span class="arrow">→</span>  <!-- 待复核节点 -->
+<span class="node">REVIEW_ONE 已一签</span><span class="arrow">→</span>  <!-- 一签节点 -->
+<span class="node">APPROVED 双签齐备</span><span class="arrow">→</span>  <!-- 双签节点 -->
+<span class="node end">EFFECTIVE 已生效</span>                  <!-- 生效终态 -->
+<span class="arrow">｜任一复核人驳回 →</span>                   <!-- 驳回路径说明 -->
+<span class="node stop">REJECTED 终态</span>                    <!-- 驳回终态 -->
+</div>                                                          <!-- 流程结束 -->
+</div>                                                          <!-- 状态机区块结束 -->
+
+<div class="section">                                           <!-- 接口清单区块 -->
+<h2>对外接口（全部返回 {ok, data, error}）</h2>                 <!-- 区块标题 -->
+<table>                                                         <!-- 接口表格 -->
+<tr><th>方法</th><th>路径</th><th>角色</th><th>作用</th></tr>  <!-- 表头 -->
+<tr><td>GET</td><td><code>/health</code></td><td>公开</td><td>探活、配置摘要、审计链状态</td></tr>  <!-- 探活接口 -->
+<tr><td>POST</td><td><code>/api/v1/auth/token</code></td><td>公开</td><td>签发 HMAC 令牌</td></tr>  <!-- 令牌接口 -->
+<tr><td>POST</td><td><code>/api/v1/kb/documents</code></td><td>ADMIN</td><td>知识库文档入库</td></tr>  <!-- 知识库入库 -->
+<tr><td>GET</td><td><code>/api/v1/kb/search</code></td><td>登录角色</td><td>制度全文检索</td></tr>  <!-- 知识库检索 -->
+<tr><td>POST</td><td><code>/api/v1/changes</code></td><td>OPERATOR / ADMIN</td><td>创建变更版本</td></tr>  <!-- 创建版本 -->
+<tr><td>GET</td><td><code>/api/v1/changes</code></td><td>登录角色</td><td>版本列表</td></tr>  <!-- 版本列表 -->
+<tr><td>GET</td><td><code>/api/v1/changes/{id}</code></td><td>登录角色</td><td>详情、差异、复核轨迹</td></tr>  <!-- 版本详情 -->
+<tr><td>POST</td><td><code>/api/v1/changes/{id}/research/run</code></td><td>OPERATOR / ADMIN</td><td>跑 harness 调研</td></tr>  <!-- 调研 -->
+<tr><td>POST</td><td><code>/api/v1/changes/{id}/research/confirm</code></td><td>OPERATOR / ADMIN</td><td>人工确认结论</td></tr>  <!-- 确认 -->
+<tr><td>POST</td><td><code>/api/v1/changes/{id}/submit</code></td><td>OPERATOR / ADMIN</td><td>提交双人复核</td></tr>  <!-- 提交 -->
+<tr><td>POST</td><td><code>/api/v1/changes/{id}/review</code></td><td>REVIEWER / ADMIN</td><td>复核 APPROVE / REJECT</td></tr>  <!-- 复核 -->
+<tr><td>POST</td><td><code>/api/v1/changes/{id}/effective</code></td><td>ADMIN</td><td>生效（不可逆）</td></tr>  <!-- 生效 -->
+<tr><td>GET</td><td><code>/api/v1/audit</code></td><td>ADMIN</td><td>审计流水 + 链校验</td></tr>  <!-- 审计 -->
+<tr><td>GET</td><td><code>/api/v1/audit/verify</code></td><td>ADMIN</td><td>单独校验哈希链</td></tr>  <!-- 链校验 -->
+</table>                                                        <!-- 表格结束 -->
+</div>                                                          <!-- 接口区块结束 -->
+
+<div class="section">                                           <!-- 验证结果区块 -->
+<h2>三阶段验证结果（全部通过）</h2>                             <!-- 区块标题 -->
+<ul>                                                            <!-- 结果列表 -->
+<li><b>阶段①</b> verify_stage1.py：表结构、FTS5、触发器、双人不同人／一人一次／最多两签、审计链可定位篡改点 — <b style="color:#0f8a53">ALL PASS</b></li>  <!-- 阶段①结果 -->
+<li><b>阶段②</b> verify_stage2.py：启动、令牌、越权 403、参数 422、404 统一结构、薪酬与差额脱敏、管理员明文视图、知识库检索 — <b style="color:#0f8a53">ALL PASS</b></li>  <!-- 阶段②结果 -->
+<li><b>阶段③</b> verify_stage3.py：创建→调研(3 轮)→确认→提交→复核甲→复核乙→生效，及自复核、重复复核、单签禁止生效、驳回后不可流转 — <b style="color:#0f8a53">ALL PASS</b></li>  <!-- 阶段③结果 -->
+<li>另实测 <code>python -m uvicorn app.main:app</code> 启动 + <code>/health</code> + 令牌签发成功，并已推送 GitHub <code>main</code> 分支。</li>  <!-- 实测结果 -->
+</ul>                                                           <!-- 列表结束 -->
+</div>                                                          <!-- 验证区块结束 -->
+
+<div class="section">                                           <!-- 启动命令区块 -->
+<h2>启动与自测</h2>                                             <!-- 区块标题 -->
+<pre># 安装依赖
+python -m pip install -r requirements.txt
+
+# 注入密钥（生产请改用密钥管理系统）
+export APP_TOKEN_SECRET=dev-secret APP_PIN_OPERATOR=pin-op \
+       APP_PIN_REVIEWER_A=pin-a APP_PIN_REVIEWER_B=pin-b APP_PIN_ADMIN=pin-admin
+
+# 离线自测模式（无需真实千问）
+export APP_LLM_MODE=mock
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+python scripts/verify_stage1.py &amp;&amp; python scripts/verify_stage2.py &amp;&amp; python scripts/verify_stage3.py
+
+# 接本地千问（vLLM / Ollama 的 OpenAI 兼容端点）
+export APP_LLM_MODE=http APP_LLM_BASE_URL=http://127.0.0.1:8001/v1 \
+       APP_LLM_MODEL=qwen2.5-7b-instruct</pre>                 <!-- 命令块结束 -->
+</div>                                                          <!-- 命令区块结束 -->
+
+<div class="section">                                           <!-- 在线页面区块 -->
+<h2>在线页面（当前服务已启动）</h2>                             <!-- 区块标题 -->
+<ul>                                                            <!-- 链接列表 -->
+<li><a href="http://127.0.0.1:8000/docs" target="_blank">Swagger UI /docs</a> — 可直接试调全部 14 个接口</li>  <!-- 接口文档 -->
+<li><a href="http://127.0.0.1:8000/redoc" target="_blank">ReDoc /redoc</a> — 另一种接口文档视图</li>  <!-- ReDoc -->
+<li><a href="http://127.0.0.1:8000/openapi.json" target="_blank">openapi.json</a> — 机器可读的接口定义</li>  <!-- OpenAPI -->
+<li><a href="http://127.0.0.1:8000/health" target="_blank">/health</a> — 统一响应结构示例</li>  <!-- 探活 -->
+<li><a href="https://github.com/keeen11111/kaiyuankecheng" target="_blank">GitHub 仓库</a> — 源码与 docs 文档</li>  <!-- 仓库 -->
+</ul>                                                           <!-- 列表结束 -->
+</div>                                                          <!-- 在线页面区块结束 -->
+
+<div class="section">                                           <!-- 交付文件区块 -->
+<h2>交付文件（21 个）</h2>                                       <!-- 区块标题 -->
+<ul>                                                            <!-- 文件列表 -->
+<li><b>app/</b> 13 个模块 · <b>config.yaml</b> · <b>requirements.txt</b> · <b>.gitignore</b></li>  <!-- 代码与配置 -->
+<li><b>docs/技术方案.md</b> · <b>docs/提示词.md</b> · <b>docs/index.html</b>（本页）</li>  <!-- 文档 -->
+<li><b>scripts/verify_stage1.py</b> · <b>verify_stage2.py</b> · <b>verify_stage3.py</b></li>  <!-- 验证脚本 -->
+</ul>                                                           <!-- 列表结束 -->
+</div>                                                          <!-- 交付文件区块结束 -->
+
+<p class="foot">本页为静态总览，不调用任何外部资源；接口试调请使用上方 Swagger UI。</p>  <!-- 页脚说明 -->
+</body>                                                         <!-- 页面主体结束 -->
+</html>                                                         <!-- 文档结束 -->

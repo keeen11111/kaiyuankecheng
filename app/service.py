@@ -1,6 +1,7 @@
 """业务服务层：版本状态机、双人复核硬约束、人工确认、生效事务与统一视图。"""
 
 import sqlite3                                                  # 捕获数据库约束异常并转成可读错误码
+from types import SimpleNamespace                               # 构造与创建请求同形的对象，复用 create_change 逻辑
 from typing import Any                                          # 标注任意载荷
 
 from app import kb                                             # 知识库入库与检索
@@ -14,6 +15,12 @@ from app.db import (STATUS_APPROVED, STATUS_DRAFT,            # 状态常量
 from app.harness import run_research                          # 现场调研 harness
 from app.response import BizError                              # 全部可预期失败都抛业务异常
 from app.security import has_role, issue_token, mask_salary   # 角色判断、令牌签发、薪酬脱敏
+
+_ALL_STATUSES = (                                              # 合法状态白名单，用于筛选参数校验
+    STATUS_DRAFT, STATUS_RESEARCHING, STATUS_RESEARCH_DONE,    # 调研前的三种状态
+    STATUS_PENDING_REVIEW, STATUS_REVIEW_ONE, STATUS_APPROVED, # 复核中的三种状态
+    STATUS_EFFECTIVE, STATUS_REJECTED,                         # 两个终态
+)                                                              # 白名单结束
 
 
 def _get_version(conn: sqlite3.Connection, version_id: str) -> dict:
@@ -258,22 +265,129 @@ def create_change(conn: sqlite3.Connection, cfg: dict, actor: dict, payload: Any
     return _view_version(conn, cfg, actor, _get_version(conn, version_id))  # 返回脱敏视图
 
 
-def list_changes(conn: sqlite3.Connection, cfg: dict, actor: dict) -> list[dict]:
-    """列出全部变更版本（按创建时间倒序）。
+def list_changes(conn: sqlite3.Connection, cfg: dict, actor: dict,
+                 status: str | None = None, emp_id: str | None = None,
+                 keyword: str | None = None) -> list[dict]:
+    """列出变更版本，支持按状态、工号、关键词筛选（按创建时间倒序）。
 
     入参:
         conn: 数据库连接。
         cfg: 全局配置。
         actor: 当前身份，决定金额是否脱敏。
+        status: 可选状态筛选，必须是合法状态值，None 表示不筛选。
+        emp_id: 可选工号筛选，None 表示不筛选。
+        keyword: 可选关键词，匹配事由 / 版本 ID / 经办人，None 表示不筛选。
     出参:
         版本视图列表。
     失败时:
-        数据库读取失败抛 sqlite3.Error，由全局处理器转成 500。
+        状态值非法抛 BizError("INVALID_STATUS_FILTER", 422)；数据库读取失败抛 sqlite3.Error，由全局处理器转成 500。
     """
-    rows = conn.execute(                                       # 查询全部版本
-        "SELECT * FROM salary_change_versions ORDER BY created_at DESC"  # 倒序
-    ).fetchall()                                               # 取回列表
+    sql = ["SELECT * FROM salary_change_versions WHERE 1=1"]    # 用 1=1 作为拼接起点，后续条件统一以 AND 追加
+    args: list[Any] = []                                        # 与占位符一一对应的参数列表，杜绝字符串拼 SQL
+    if status:                                                  # 传了状态才加条件
+        if status not in _ALL_STATUSES:                         # 状态值必须来自白名单
+            raise BizError("INVALID_STATUS_FILTER", "未知的状态筛选值", 422)  # 拼错状态不应静默返回空列表
+        sql.append("AND status=?")                              # 追加状态条件
+        args.append(status)                                     # 绑定状态值
+    if emp_id:                                                  # 传了工号才加条件
+        sql.append("AND emp_id=?")                              # 精确匹配工号
+        args.append(emp_id)                                     # 绑定工号
+    if keyword:                                                 # 传了关键词才加模糊条件
+        like = f"%{keyword.strip()}%"                           # 两侧加通配符，作为参数传入而非拼进 SQL
+        sql.append("AND (reason LIKE ? OR version_id LIKE ? OR operator_id LIKE ?)")  # 三个可检索字段
+        args.extend([like, like, like])                         # 同一关键词绑定三次
+    sql.append("ORDER BY created_at DESC")                      # 倒序，最近创建的在前
+    rows = conn.execute(" ".join(sql), args).fetchall()         # 参数化执行，避免注入
     return [_view_version(conn, cfg, actor, dict(r)) for r in rows]  # 逐个构造脱敏视图
+
+
+def get_chain(conn: sqlite3.Connection, cfg: dict, actor: dict, version_id: str) -> dict:
+    """读取同一员工的历史版本链，用于判断本次调薪是否重复或倒退。
+
+    入参:
+        conn: 数据库连接。
+        cfg: 全局配置。
+        actor: 当前身份，决定金额是否脱敏。
+        version_id: 链中任意一个版本 ID，用它的工号定位整条链。
+    出参:
+        {"emp_id", "current": 当前生效薪酬摘要或 None, "items": 版本摘要列表（按创建时间升序）}。
+    失败时:
+        版本不存在抛 BizError("CHANGE_NOT_FOUND", 404)；JSON 损坏抛 JSONDecodeError 走 500。
+    """
+    base = _get_version(conn, version_id)                       # 先取锚点版本，拿工号
+    is_admin = has_role(actor, "ADMIN")                         # 只有管理员看明文金额
+    enabled = bool(cfg["data_redline"]["mask_salary_for_non_admin"])  # 脱敏开关
+    record = conn.execute(                                      # 查该员工当前生效的薪酬基线
+        "SELECT base_salary_cents,currency,version_no,updated_at FROM salary_records WHERE emp_id=?",  # 只取必要列
+        (base["emp_id"],),                                      # 绑定工号
+    ).fetchone()                                                # 取一行，可能为空
+    current = None                                              # 默认没有基线
+    if record is not None:                                      # 有基线才构造摘要
+        masked = mask_salary(int(record["base_salary_cents"]), is_admin, enabled)  # 按角色脱敏
+        current = {"version_no": int(record["version_no"]),     # 当前薪酬版本号
+                   "base_salary_display": masked["base_salary_display"],  # 展示金额
+                   "updated_at": record["updated_at"]}          # 基线最后更新时间
+    rows = conn.execute(                                        # 查同工号的全部变更版本
+        "SELECT * FROM salary_change_versions WHERE emp_id=? ORDER BY created_at ASC",  # 升序便于看演进
+        (base["emp_id"],),                                      # 绑定工号
+    ).fetchall()                                                # 取回列表
+    items = []                                                  # 收集摘要
+    for r in rows:                                              # 逐条构造轻量摘要，不重复展开复核明细
+        row = dict(r)                                           # 转成字典便于读取
+        diff = _diff_view(row, is_admin, enabled)               # 差额同样脱敏
+        items.append({"version_id": row["version_id"],           # 版本 ID
+                      "status": row["status"],                  # 状态
+                      "operator_id": row["operator_id"],        # 经办人
+                      "reason": row["reason"],                  # 事由
+                      "after_display": mask_salary(int(loads(row["after_json"], {}).get("base_salary_cents", 0)),  # 变更后金额
+                                                   is_admin, enabled)["base_salary_display"],  # 按角色脱敏
+                      "delta_display": diff["delta_display"],   # 差额展示值
+                      "created_at": row["created_at"],          # 创建时间
+                      "effective_at": row["effective_at"],      # 生效时间
+                      "is_current": row["version_id"] == version_id})  # 标记锚点版本，前端高亮
+    return {"emp_id": base["emp_id"], "current": current, "items": items}  # 返回整条链
+
+
+def clone_change(conn: sqlite3.Connection, cfg: dict, actor: dict,
+                 version_id: str, payload: Any) -> dict:
+    """基于一个被驳回的版本重建草稿，避免重复手工录入。
+
+    入参:
+        conn: 写事务中的连接。
+        cfg: 全局配置。
+        actor: 当前身份（路由已限定 OPERATOR/ADMIN）。
+        version_id: 源版本 ID，必须是 REJECTED。
+        payload: ChangeCloneIn 请求对象，金额 / 事由 / 问题均可留空。
+    出参:
+        新建草稿的脱敏视图，含 source_version_id。
+    失败时:
+        源版本不存在抛 CHANGE_NOT_FOUND(404)；状态不是 REJECTED 抛 INVALID_STATUS(409)；
+        写入失败由事务回滚，源版本不受影响。
+    """
+    src = _get_version(conn, version_id)                        # 读取源版本
+    if src["status"] != STATUS_REJECTED:                        # 只有驳回态需要重提
+        # 为什么卡在这里：允许从任意状态复制会产生"平行版本"，同一员工同时存在两条待复核记录，
+        # 生效时后写的那条会覆盖前一条，审计上无法判断哪次调薪是真实意图。
+        raise BizError("INVALID_STATUS", "只有被驳回的版本可以复制重建", 409)  # 明确拒绝
+    src_after = loads(src["after_json"], {})                    # 取源版本的变更后快照
+    cents = payload.new_base_salary_cents                       # 优先用调用方重新确认的金额
+    if not cents:                                               # 未填则沿用原金额
+        cents = int(src_after.get("base_salary_cents", 0))      # 从快照取原金额
+    if cents <= 0:                                              # 原金额缺失属于脏数据
+        raise BizError("SALARY_BASE_MISSING", "源版本缺少有效金额，请直接新建版本", 409)  # 拒绝，避免生成 0 元版本
+    reason = (payload.reason or f"{src['reason']}（基于被驳回版本重建）").strip()  # 默认在原事由上标注来源
+    question = payload.research_question or _get_research_question(conn, version_id)  # 沿用原调研问题
+    if not question:                                            # 原问题缺失时给一个可执行的默认值
+        question = "核实岗位职级、绩效依据与生效月份"            # 兜底问题，保证能发起调研
+    created = create_change(conn, cfg, actor, SimpleNamespace(   # 复用创建逻辑，保证 before 取的是最新基线
+        emp_id=src["emp_id"],                                   # 同工号
+        new_base_salary_cents=int(cents),                       # 重新确认的金额
+        reason=reason,                                          # 新事由
+        research_question=question))                            # 调研问题
+    append_audit(conn, actor["actor_id"], "CHANGE_CLONE", created["version_id"],  # 审计：记录重建来源
+                 {"source_version_id": version_id, "emp_id": src["emp_id"]})  # 只写 ID，不写金额
+    created["source_version_id"] = version_id                   # 回传来源，前端可显示"由 xx 重建"
+    return created                                              # 返回新草稿视图
 
 
 def get_change(conn: sqlite3.Connection, cfg: dict, actor: dict, version_id: str) -> dict:

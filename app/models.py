@@ -19,6 +19,14 @@ class ChangeCreateIn(BaseModel):
     research_question: str = Field(min_length=4, max_length=500)  # 现场调研的核心问题
 
 
+class ChangeCloneIn(BaseModel):
+    """基于已有版本重建草稿的请求体（驳回后重提的标准路径）。"""  # 类说明
+
+    new_base_salary_cents: int | None = Field(default=None, gt=0, le=10000000000)  # 新金额，留空则沿用原版本金额
+    reason: str | None = Field(default=None, max_length=500)   # 新事由，留空则由服务层在原事由后追加说明
+    research_question: str | None = Field(default=None, max_length=500)  # 新调研问题，留空则沿用原问题
+
+
 class ReviewIn(BaseModel):
     """提交复核结论的请求体。"""                               # 类说明
 

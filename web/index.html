@@ -1,0 +1,574 @@
+<!DOCTYPE html>                                                <!-- 声明 HTML5 文档类型 -->
+<html lang="zh-CN">                                             <!-- 页面语言为简体中文 -->
+<head>                                                          <!-- 文档头部开始 -->
+<meta charset="UTF-8">                                          <!-- 统一 UTF-8，保证中文不乱码 -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0">  <!-- 适配不同屏幕宽度 -->
+<title>薪酬变更版本与双人复核 · 现场调研智能体</title>          <!-- 浏览器标签标题 -->
+<style>                                                         <!-- 内联样式：零外部依赖、零 CDN、零构建工具 -->
+:root{--bg:#f4f6fa;--card:#fff;--ink:#1f2430;--sub:#5b6473;--line:#e3e8f0;--pri:#2f6feb;--pri-soft:#eef3fd;--ok:#0f8a53;--ok-soft:#e9f7ef;--warn:#b54708;--warn-soft:#fff4e6;--red:#b42318;--red-soft:#fdeeee;--purple:#6941c6}  /* 浅色主题变量：浅底深字 */
+*{box-sizing:border-box}                                        /* 统一盒模型 */
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.6 "Microsoft YaHei","PingFang SC",Arial,sans-serif}  /* 页面底色与字体 */
+button,input,select,textarea{font:inherit;color:inherit}       /* 表单元素继承字体与颜色 */
+.hidden{display:none!important}                                 /* 通用隐藏类 */
+a{color:var(--pri);text-decoration:none}                        /* 链接样式 */
+h2{font-size:18px;margin:0 0 4px}                               /* 区块标题 */
+h3{font-size:15px;margin:0 0 10px}                              /* 卡片标题 */
+.muted{color:var(--sub);font-size:12px}                         /* 次级说明文字 */
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px 20px;margin-bottom:16px;box-shadow:0 1px 2px rgba(16,24,40,.03)}  /* 白色卡片 */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px}  /* 自适应统计卡网格 */
+.stat{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px}  /* 单个统计卡 */
+.stat .num{font-size:26px;font-weight:700;line-height:1.2}     /* 统计数字 */
+.stat .lbl{color:var(--sub);font-size:12px;margin-top:2px}     /* 统计标签 */
+.stat.good .num{color:var(--ok)}                                /* 正常指标用绿色 */
+.stat.warn .num{color:var(--warn)}                              /* 待办指标用橙色 */
+table{width:100%;border-collapse:collapse;font-size:13px}      /* 表格 */
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:middle}  /* 单元格 */
+th{background:#f8fafc;color:var(--sub);font-weight:600;white-space:nowrap}  /* 表头 */
+tr:hover td{background:#fbfcfe}                                 /* 行悬停 */
+.badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;border:1px solid transparent;white-space:nowrap}  /* 状态胶囊 */
+.st-draft{background:#f2f4f7;color:#475467;border-color:#e4e7ec}  /* 草稿灰 */
+.st-research{background:var(--pri-soft);color:var(--pri);border-color:#cddcfb}  /* 调研蓝 */
+.st-pending{background:var(--warn-soft);color:var(--warn);border-color:#fedf89}  /* 待复核橙 */
+.st-one{background:#f4f3ff;color:var(--purple);border-color:#d9d6fe}  /* 一签紫 */
+.st-approved{background:#ecfdf3;color:var(--ok);border-color:#abefc6}  /* 双签蓝绿 */
+.st-effective{background:var(--ok-soft);color:var(--ok);border-color:#bfe6cf}  /* 已生效绿 */
+.st-rejected{background:var(--red-soft);color:var(--red);border-color:#f5c9c9}  /* 驳回红 */
+.btn{border:1px solid var(--line);background:#fff;border-radius:7px;padding:6px 12px;cursor:pointer;font-size:12px;white-space:nowrap}  /* 次要按钮 */
+.btn:hover{border-color:var(--pri);color:var(--pri)}            /* 按钮悬停 */
+.btn.pri{background:var(--pri);border-color:var(--pri);color:#fff}  /* 主按钮 */
+.btn.pri:hover{background:#1f5ad0;color:#fff}                   /* 主按钮悬停 */
+.btn.ok{background:var(--ok);border-color:var(--ok);color:#fff}  /* 通过按钮 */
+.btn.danger{background:#fff;border-color:#f5c9c9;color:var(--red)}  /* 驳回按钮 */
+.btn:disabled{opacity:.45;cursor:not-allowed}                   /* 禁用态 */
+.btn+.btn{margin-left:5px}                                      /* 相邻按钮间距 */
+input[type=text],input[type=password],input[type=number],select,textarea{width:100%;border:1px solid var(--line);border-radius:7px;padding:8px 10px;background:#fff;outline:none}  /* 输入控件 */
+input:focus,select:focus,textarea:focus{border-color:var(--pri);box-shadow:0 0 0 3px rgba(47,111,235,.1)}  /* 聚焦态 */
+label{display:block;font-size:12px;color:var(--sub);margin:0 0 4px}  /* 表单标签 */
+.field{margin-bottom:12px}                                      /* 表单项间距 */
+.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0 14px}  /* 表单两列布局 */
+.topbar{height:58px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 22px;position:sticky;top:0;z-index:20}  /* 顶栏 */
+.brand{font-weight:700;font-size:15px}                          /* 品牌名 */
+.brand small{display:block;font-weight:400;color:var(--sub);font-size:11px}  /* 品牌副标题 */
+.who{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--sub)}  /* 顶栏身份区 */
+.avatar{width:30px;height:30px;border-radius:50%;background:var(--pri-soft);color:var(--pri);display:grid;place-items:center;font-weight:700}  /* 头像 */
+.layout{display:flex;min-height:calc(100vh - 58px)}            /* 主体左右布局 */
+.side{width:205px;background:#fff;border-right:1px solid var(--line);padding:14px 10px;flex:none}  /* 侧边导航 */
+.nav-item{display:flex;align-items:center;gap:9px;padding:9px 12px;border-radius:7px;cursor:pointer;color:var(--sub);font-size:13px;margin-bottom:3px}  /* 导航项 */
+.nav-item:hover{background:#f7f9fc}                             /* 导航悬停 */
+.nav-item.on{background:var(--pri-soft);color:var(--pri);font-weight:600}  /* 选中导航 */
+.main{flex:1;padding:20px 24px 60px;min-width:0}               /* 主内容区 */
+.page-head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:16px;gap:12px}  /* 页头 */
+.steps{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12px}  /* 流程步骤条 */
+.step{background:#f2f4f7;border:1px solid var(--line);border-radius:6px;padding:5px 10px;color:var(--sub)}  /* 步骤节点 */
+.step.done{background:var(--ok-soft);border-color:#bfe6cf;color:var(--ok)}  /* 已完成步骤 */
+.step.now{background:var(--pri-soft);border-color:#cddcfb;color:var(--pri);font-weight:600}  /* 当前步骤 */
+.empty{text-align:center;color:var(--sub);padding:28px 0;font-size:13px}  /* 空状态 */
+.row-actions{display:flex;flex-wrap:wrap;gap:4px}               /* 操作按钮组 */
+.timeline{border-left:2px solid var(--line);padding-left:14px;margin:8px 0}  /* 时间线竖线 */
+.tl-item{position:relative;margin-bottom:12px;font-size:12px}   /* 时间线条目 */
+.tl-item:before{content:"";position:absolute;left:-19px;top:5px;width:8px;height:8px;border-radius:50%;background:var(--pri)}  /* 时间线圆点 */
+.kv{display:grid;grid-template-columns:110px 1fr;gap:6px 10px;font-size:13px}  /* 键值展示 */
+.kv .k{color:var(--sub)}                                        /* 键名 */
+.diff-box{display:flex;align-items:center;gap:14px;background:#f8fafc;border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin:10px 0}  /* 差异对比框 */
+.diff-box .amt{font-size:18px;font-weight:700}                  /* 金额大字 */
+.pre{background:#1e2530;color:#e6edf7;border-radius:8px;padding:12px 14px;font-size:12px;white-space:pre-wrap;word-break:break-all;max-height:260px;overflow:auto}  /* JSON/文本展示 */
+.drawer-mask{position:fixed;inset:0;background:rgba(16,24,40,.35);z-index:40}  /* 抽屉遮罩 */
+.drawer{position:fixed;right:0;top:0;bottom:0;width:min(560px,94vw);background:#fff;z-index:41;overflow:auto;padding:22px;box-shadow:-8px 0 24px rgba(16,24,40,.12)}  /* 右侧抽屉 */
+.drawer-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}  /* 抽屉头部 */
+.toast{position:fixed;right:22px;bottom:22px;z-index:60;background:#1e2530;color:#fff;padding:11px 16px;border-radius:8px;font-size:13px;max-width:420px;box-shadow:0 8px 24px rgba(16,24,40,.2)}  /* 提示条 */
+.toast.err{background:#b42318}                                  /* 错误提示条 */
+.login-wrap{min-height:100vh;display:grid;place-items:center;background:linear-gradient(135deg,#eef3fd 0%,#f4f6fa 55%,#e9f7ef 100%)}  /* 登录页背景 */
+.login-box{width:min(430px,92vw);background:#fff;border:1px solid var(--line);border-radius:14px;padding:28px;box-shadow:0 12px 32px rgba(16,24,40,.08)}  /* 登录卡片 */
+.login-box h1{font-size:20px;margin:0 0 4px}                    /* 登录标题 */
+.login-box .muted{margin-bottom:20px}                           /* 登录副标题 */
+.role-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}  /* 角色说明标签 */
+.chip{background:#f2f4f7;border-radius:5px;padding:3px 8px;font-size:11px;color:var(--sub)}  /* 单个标签 */
+</style>                                                        <!-- 样式结束 -->
+</head>                                                         <!-- 文档头部结束 -->
+<body>                                                          <!-- 页面主体开始 -->
+
+<div id="login" class="login-wrap">                              <!-- 未登录时展示的全屏登录层 -->
+<div class="login-box">                                          <!-- 登录卡片 -->
+<h1>薪酬变更版本与双人复核</h1>                                  <!-- 系统名称 -->
+<div class="muted">现场调研智能体系统 · 内网本地部署</div>        <!-- 副标题 -->
+<div class="field"><label>账号</label><select id="lg-actor">      <!-- 账号下拉 -->
+<option value="u_operator">经办员（OPERATOR）</option>            <!-- 经办人选项 -->
+<option value="u_reviewer_a">复核员甲（REVIEWER）</option>        <!-- 第一复核人选项 -->
+<option value="u_reviewer_b">复核员乙（REVIEWER）</option>        <!-- 第二复核人选项 -->
+<option value="u_admin">管理员（ADMIN）</option>                  <!-- 管理员选项 -->
+</select></div>                                                  <!-- 账号字段结束 -->
+<div class="field"><label>口令</label><input type="password" id="lg-pin" placeholder="输入 APP_PIN_* 环境变量对应的口令"></div>  <!-- 口令输入，不在页面硬编码任何口令 -->
+<button class="btn pri" style="width:100%;padding:9px" onclick="doLogin()">登 录</button>  <!-- 登录按钮 -->
+<div class="role-chips">                                         <!-- 角色说明区 -->
+<span class="chip">经办：创建 / 调研 / 提交</span>                <!-- 经办职责 -->
+<span class="chip">复核：双人独立复核</span>                      <!-- 复核职责 -->
+<span class="chip">管理员：生效 / 审计 / 知识库</span>            <!-- 管理员职责 -->
+</div>                                                           <!-- 角色说明结束 -->
+<div class="muted" style="margin-top:14px">口令取自启动服务时注入的环境变量，前端不保存、不硬编码任何凭据。</div>  <!-- 安全说明 -->
+</div>                                                           <!-- 登录卡片结束 -->
+</div>                                                           <!-- 登录层结束 -->
+
+<div id="app" class="hidden">                                    <!-- 登录后的应用主体 -->
+<header class="topbar">                                          <!-- 顶栏 -->
+<div class="brand">薪酬变更版本与双人复核                        <!-- 品牌名 -->
+<small>现场调研智能体 · FastAPI + 本地千问</small>                <!-- 品牌副标题 -->
+</div>                                                           <!-- 品牌区结束 -->
+<div class="who">                                                <!-- 身份区 -->
+<span id="who-role" class="badge st-research"></span>            <!-- 角色徽章 -->
+<span id="who-name"></span>                                      <!-- 显示名 -->
+<div class="avatar" id="who-avatar"></div>                       <!-- 头像 -->
+<button class="btn" onclick="doLogout()">退出</button>           <!-- 退出按钮 -->
+</div>                                                           <!-- 身份区结束 -->
+</header>                                                        <!-- 顶栏结束 -->
+<div class="layout">                                             <!-- 左右布局 -->
+<nav class="side" id="nav"></nav>                                <!-- 侧边导航，按角色动态渲染 -->
+<main class="main" id="main"></main>                             <!-- 主内容区，按视图动态渲染 -->
+</div>                                                           <!-- 布局结束 -->
+</div>                                                           <!-- 应用主体结束 -->
+
+<div id="drawer-mask" class="drawer-mask hidden" onclick="closeDrawer()"></div>  <!-- 抽屉遮罩，点击关闭 -->
+<aside id="drawer" class="drawer hidden"></aside>                <!-- 右侧详情抽屉 -->
+<div id="toast" class="toast hidden"></div>                      <!-- 全局提示条 -->
+
+<script>                                                        <!-- 原生 JS：不引入任何前端框架 -->
+"use strict";                                                   // 启用严格模式，避免隐式全局污染
+
+const S = { token:"", actor:null, view:"dashboard", versions:[], health:null, audit:null, kbHits:[], research:null,  // 全局状态，仅保存在内存
+            filter:{ status:"", q:"" }, chain:null };      // filter 为列表筛选条件，chain 为详情里的历史版本链
+
+const STATUS = {                                                // 状态到中文名与样式类的映射
+  DRAFT:["草稿","st-draft"], RESEARCHING:["调研中","st-research"], RESEARCH_DONE:["结论已确认","st-research"],  // 前三个状态
+  PENDING_REVIEW:["待第一签","st-pending"], REVIEW_ONE:["已一签","st-one"], APPROVED:["双签齐备","st-approved"],  // 复核阶段状态
+  EFFECTIVE:["已生效","st-effective"], REJECTED:["已驳回","st-rejected"]  // 两个终态
+};                                                              // 映射结束
+
+function esc(v){ return String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }  // 转义动态内容，防止 XSS
+function $(id){ return document.getElementById(id); }           // 简写：按 ID 取元素
+function badge(s){ const p = STATUS[s] || [s,"st-draft"]; return `<span class="badge ${p[1]}">${esc(p[0])}</span>`; }  // 生成状态徽章
+function hasRole(r){ return (S.actor?.roles || []).includes(r); }  // 判断是否具备某角色
+function isOp(){ return hasRole("OPERATOR") || hasRole("ADMIN"); }  // 能否经办：创建、调研、提交
+function isRev(){ return hasRole("REVIEWER") || hasRole("ADMIN"); }  // 能否复核
+function isAdmin(){ return hasRole("ADMIN"); }                   // 能否生效、看审计、维护知识库
+function fmtTime(t){ return t ? String(t).replace("T"," ").slice(0,19) : "—"; }  // 时间戳转可读格式
+function findVer(id){ return S.versions.find(v => v.version_id === id); }  // 按 ID 在已加载列表里找版本
+
+function toast(msg, isErr){                                     // 显示全局提示条
+  const t = $("toast");                                         // 取提示条元素
+  t.textContent = msg;                                         // 只写文本，不插入 HTML
+  t.className = "toast" + (isErr ? " err" : "");              // 错误时切换红色样式
+  clearTimeout(toast.timer);                                   // 清掉上一个定时器
+  toast.timer = setTimeout(() => t.classList.add("hidden"), 3600);  // 3.6 秒后自动隐藏
+}                                                               // 提示函数结束
+
+async function api(path, opts){                                 // 统一请求封装，处理 Bearer 令牌与统一响应结构
+  const o = opts || {};                                         // 参数缺省时按空对象处理
+  const headers = Object.assign({}, o.headers || {});          // 复制调用方自定义头
+  if (S.token) headers["Authorization"] = "Bearer " + S.token;  // 有令牌就带上
+  if (o.body) headers["Content-Type"] = "application/json";   // 有请求体就声明 JSON
+  const res = await fetch(path, { method:o.method || "GET", headers, body:o.body ? JSON.stringify(o.body) : undefined });  // 发起同源请求
+  let j;                                                        // 存放解析后的响应体
+  try { j = await res.json(); } catch(e) { throw new Error("响应不是 JSON"); }  // 非 JSON 视为失败
+  if (!j.ok) throw new Error((j.error?.code || "ERROR") + "：" + (j.error?.msg || ""));  // 业务失败转成异常
+  return j.data;                                               // 成功只返回 data
+}                                                               // 请求封装结束
+
+async function doLogin(){                                       // 登录：签发令牌并进入应用
+  const actor_id = $("lg-actor").value;                        // 读取账号
+  const pin = $("lg-pin").value;                              // 读取口令，不写入任何存储
+  if (!pin) { toast("请输入口令", true); return; }             // 空口令直接提示
+  try {                                                        // 保护网络请求
+    const d = await api("/api/v1/auth/token", { method:"POST", body:{ actor_id, pin } });  // 调签发接口
+    S.token = d.token;                                         // 令牌只放内存，刷新页面需重新登录
+    S.actor = d.actor;                                         // 保存身份与角色
+    $("lg-pin").value = "";                                  // 立即清空口令输入框
+    await enterApp();                                        // 进入主界面并拉取数据
+    toast("登录成功：" + d.actor.name);                       // 提示登录成功
+  } catch(e) { toast(e.message, true); }                      // 显示错误码与提示
+}                                                               // 登录函数结束
+
+function doLogout(){                                            // 退出：清空内存状态并回到登录页
+  S.token = ""; S.actor = null; S.versions = []; S.audit = null; S.research = null;  // 清空全部敏感状态
+  $("app").classList.add("hidden");                            // 隐藏应用主体
+  $("login").classList.remove("hidden");                      // 显示登录层
+  closeDrawer();                                              // 关闭可能打开的抽屉
+}                                                               // 退出函数结束
+
+const NAV = [                                                   // 导航项定义：key、图标文字、名称、可见性
+  ["dashboard","▦","工作台",() => true],                       // 所有角色可见
+  ["changes","▤","变更版本",() => true],                       // 所有角色可见
+  ["research","◎","现场调研",() => isOp()],                    // 仅经办/管理员
+  ["review","✓","复核中心",() => isRev()],                     // 仅复核/管理员
+  ["audit","≡","审计日志",() => isAdmin()],                    // 仅管理员
+  ["kb","▢","知识库",() => true]                              // 所有角色可见
+];                                                              // 导航定义结束
+
+function renderNav(){                                           // 按当前角色渲染侧边导航
+  $("nav").innerHTML = NAV.filter(n => n[3]()).map(n =>        // 先过滤无权限项，再拼 HTML
+    `<div class="nav-item ${S.view === n[0] ? "on" : ""}" onclick="go('${n[0]}')">${n[1]}　${n[2]}</div>`  // 单个导航项
+  ).join("");                                                  // 拼接成完整导航
+}                                                               // 导航渲染结束
+
+async function enterApp(){                                      // 登录后初始化界面
+  $("login").classList.add("hidden");                          // 隐藏登录层
+  $("app").classList.remove("hidden");                         // 显示应用主体
+  $("who-name").textContent = S.actor.name;                   // 顶栏显示名
+  $("who-avatar").textContent = S.actor.name.slice(0,1);      // 头像取首字
+  $("who-role").textContent = S.actor.roles.join(" / ");      // 顶栏角色
+  S.view = isRev() && !isOp() ? "review" : "dashboard";       // 复核人默认进复核中心，经办人进工作台
+  await refresh();                                            // 拉取业务数据
+}                                                               // 初始化结束
+
+async function refresh(){                                       // 刷新全局数据：版本列表、健康状态、审计链
+  try {                                                        // 保护并行请求
+    const jobs = [api("/api/v1/changes"), api("/health")];     // 所有角色都能调这两个接口
+    if (isAdmin()) jobs.push(api("/api/v1/audit?limit=100"));  // 管理员额外拉审计
+    const out = await Promise.all(jobs);                       // 并行发出
+    S.versions = out[0];                                      // 保存版本列表
+    S.health = out[1];                                        // 保存健康状态
+    S.audit = isAdmin() ? out[2] : null;                      // 保存审计数据
+  } catch(e) { toast("数据加载失败：" + e.message, true); }   // 加载失败提示，不阻塞渲染
+  renderNav();                                                // 重绘导航
+  render();                                                   // 重绘主内容
+}                                                               // 刷新结束
+
+function go(view){ closeDrawer(); S.view = view; renderNav(); render(); }  // 切换视图时顺手关掉详情抽屉，避免遮罩挡住新页面
+
+function render(){                                              // 按当前视图分发渲染
+  const map = { dashboard:viewDashboard, changes:viewChanges, research:viewResearch,  // 视图函数映射
+                review:viewReview, audit:viewAudit, kb:viewKB };  // 继续映射
+  $("main").innerHTML = (map[S.view] || viewDashboard)();      // 生成主内容 HTML
+}                                                               // 分发结束
+
+function statCards(){                                           // 生成工作台顶部四个统计卡
+  const v = S.versions;                                        // 取版本列表
+  const pending = v.filter(x => x.status === "PENDING_REVIEW" || x.status === "REVIEW_ONE").length;  // 待复核数量
+  const done = v.filter(x => x.status === "EFFECTIVE").length;  // 已生效数量
+  const chain = S.health?.audit?.ok ? "完整" : "异常";          // 审计链状态
+  return [                                                    // 用数组逐行拼装，便于每行都带中文注释
+    `<div class="grid">`,                                      // 统计卡网格开始
+    `<div class="stat"><div class="num">${v.length}</div><div class="lbl">变更版本总数</div></div>`,  // 版本总数
+    `<div class="stat warn"><div class="num">${pending}</div><div class="lbl">待双人复核</div></div>`,  // 待复核
+    `<div class="stat good"><div class="num">${done}</div><div class="lbl">已生效</div></div>`,  // 已生效
+    `<div class="stat good"><div class="num" style="font-size:19px">${esc(chain)}</div><div class="lbl">审计哈希链</div></div>`,  // 链状态
+    `</div>`                                                   // 网格结束
+  ].join("");                                                 // 拼成完整 HTML
+}                                                               // 统计卡结束
+
+function flowSteps(v){                                          // 根据版本状态生成流程步骤条
+  const order = ["DRAFT","RESEARCH_DONE","PENDING_REVIEW","REVIEW_ONE","APPROVED","EFFECTIVE"];  // 正常流程顺序
+  const names = ["草稿 / 调研","结论确认","提交复核","第一签","第二签","生效"];  // 步骤中文名
+  const cur = order.indexOf(v.status);                        // 当前步骤下标
+  const rejected = v.status === "REJECTED";                   // 是否被驳回
+  return [                                                    // 数组拼装
+    `<div class="steps">`,                                     // 步骤条开始
+    ...names.map((n,i) => {                                  // 逐步骤生成节点
+      const cls = rejected ? "" : (i < cur ? "done" : (i === cur ? "now" : ""));  // 已完成 / 当前 / 未开始
+      return `<span class="step ${cls}">${i+1}. ${n}</span>` + (i < names.length-1 ? `<span class="muted">→</span>` : "");  // 节点与箭头
+    }),                                                      // 映射结束
+    rejected ? `<span class="badge st-rejected">已驳回，需新建版本重提</span>` : "",  // 驳回提示
+    `</div>`                                                   // 步骤条结束
+  ].join("");                                                 // 拼成完整 HTML
+}                                                               // 步骤条结束
+
+function viewDashboard(){                                       // 工作台视图
+  const recent = S.versions.slice(0,6);                       // 只展示最近 6 条
+  return [                                                    // 数组拼装
+    `<div class="page-head"><div><h2>工作台</h2><div class="muted">版本化变更 · 现场调研 · 双人复核 · 管理员生效</div></div>`,  // 页头
+    `<button class="btn pri" onclick="go('changes')">＋ 新建变更版本</button></div>`,  // 快捷入口
+    statCards(),                                              // 统计卡
+    `<div class="card"><h3>系统运行状态</h3>`,                 // 运行状态卡片
+    `<div class="kv"><div class="k">模型模式</div><div>${esc(S.health?.llm_mode || "—")} / ${esc(S.health?.llm_model || "—")}</div>`,  // 模型信息
+    `<div class="k">提示词模板</div><div>${esc((S.health?.prompts_loaded || []).join("、") || "—")}</div>`,  // 提示词清单
+    `<div class="k">审计记录数</div><div>${S.health?.audit?.count ?? "—"} 条，链${S.health?.audit?.ok ? "完整" : "异常"}</div></div></div>`,  // 审计状态
+    `<div class="card"><h3>最近版本</h3>`,                     // 最近版本卡片
+    recent.length ? versionTable(recent) : `<div class="empty">暂无变更版本，点击右上角新建</div>`,  // 表格或空状态
+    `</div>`,                                                  // 卡片结束
+    `<div class="card"><h3>业务红线</h3><div class="muted">薪酬以整数分存储；非管理员只看 **** 且差额也脱敏；调研结论必须人工确认；复核人不得为经办人且两人不得相同；模型端点只能是本机或私网；审计日志不写明文金额。</div></div>`  // 红线说明
+  ].join("");                                                 // 拼成完整 HTML
+}                                                               // 工作台结束
+
+function actionButtons(v){                                      // 按状态与角色生成行内操作按钮
+  const b = [`<button class="btn" onclick="openDetail('${v.version_id}')">详情</button>`];  // 详情所有角色可用
+  if (v.status === "DRAFT" && isOp()) b.push(`<button class="btn pri" onclick="go('research');pickResearch('${v.version_id}')">调研</button>`);  // 发起调研
+  if (v.status === "DRAFT" && isOp() && v.research?.status === "WAIT_CONFIRM") b.push(`<button class="btn" onclick="confirmResearch('${v.version_id}')">确认结论</button>`);  // 人工确认
+  if (v.status === "RESEARCH_DONE" && isOp()) b.push(`<button class="btn pri" onclick="submitChange('${v.version_id}')">提交复核</button>`);  // 提交复核
+  if ((v.status === "PENDING_REVIEW" || v.status === "REVIEW_ONE") && isRev()) b.push(`<button class="btn ok" onclick="go('review')">去复核</button>`);  // 前往复核
+  if (v.status === "APPROVED" && isAdmin()) b.push(`<button class="btn ok" onclick="effectiveChange('${v.version_id}')">生效</button>`);  // 管理员生效
+  if (v.status === "REJECTED" && isOp()) b.push(`<button class="btn pri" onclick="cloneChange('${v.version_id}')">重建</button>`);  // 驳回后基于本版本重建草稿，免手工重录
+  return `<div class="row-actions">${b.join("")}</div>`;      // 包成按钮组
+}                                                               // 操作按钮结束
+
+function versionTable(list){                                    // 生成版本列表表格
+  return [                                                    // 数组拼装
+    `<table><thead><tr><th>状态</th><th>版本 / 工号</th><th>经办人</th><th>变更前</th><th>变更后</th><th>差额</th><th>复核</th><th>创建时间</th><th>操作</th></tr></thead><tbody>`,  // 表头
+    ...list.map(v => `<tr><td>${badge(v.status)}</td><td><code>${esc(v.version_id.slice(0,14))}…</code><div class="muted">${esc(v.emp_id)}</div></td>`  // 状态与 ID
+      + `<td>${esc(v.operator_id)}</td><td>${esc(v.before.base_salary_display)}</td><td>${esc(v.after.base_salary_display)}</td>`  // 经办人与金额
+      + `<td>${esc(v.diff.delta_display)}</td><td>${v.reviews.length} / 2</td><td class="muted">${fmtTime(v.created_at)}</td>`  // 差额、复核数、时间
+      + `<td>${actionButtons(v)}</td></tr>`),                 // 操作列
+    `</tbody></table>`                                        // 表格结束
+  ].join("");                                                 // 拼成完整 HTML
+}                                                               // 表格结束
+
+function viewChanges(){                                         // 变更版本视图
+  const canCreate = isOp();                                    // 是否具备创建权限
+  const list = filteredVersions();                             // 按当前筛选条件取出可见版本
+  return [                                                    // 数组拼装
+    `<div class="page-head"><div><h2>变更版本</h2><div class="muted">每次调薪生成一个不可变版本，原记录生效前不改动</div></div></div>`,  // 页头
+    `<div class="card"><h3>筛选</h3><div class="form-grid">`,   // 筛选卡片
+    `<div class="field"><label>状态</label><select onchange="setFilter('status',this.value)">`  // 状态下拉
+      + `<option value="">全部状态</option>`                    // 空值表示不筛选
+      + Object.keys(STATUS).map(k => `<option value="${k}"${S.filter.status === k ? " selected" : ""}>${esc(STATUS[k][0])}</option>`).join("")  // 全部状态项
+      + `</select></div>`,                                     // 下拉结束
+    `<div class="field"><label>关键词</label><input type="text" value="${esc(S.filter.q)}" placeholder="工号 / 版本 ID / 经办人 / 事由" onchange="setFilter('q',this.value)" onkeydown="if(event.key==='Enter')setFilter('q',this.value)"></div>`,  // 关键词输入，回车即筛选
+    `<div class="field"><label>&nbsp;</label><button class="btn" onclick="resetFilter()">重置筛选</button></div>`,  // 重置按钮
+    `</div></div>`,                                            // 筛选卡片结束
+    canCreate ? `<div class="card"><h3>新建变更版本</h3><div class="form-grid">`  // 新建表单（按角色显示）
+      + `<div class="field"><label>员工工号</label><input type="text" id="c-emp" value="E001"></div>`  // 工号
+      + `<div class="field"><label>变更后月薪（分）</label><input type="number" id="c-cents" value="2200000"></div>`  // 金额，单位分
+      + `<div class="field"><label>变更事由</label><input type="text" id="c-reason" value="年度绩效调薪，需完成现场取证"></div>`  // 事由
+      + `<div class="field"><label>调研核心问题</label><input type="text" id="c-question" value="核实岗位职级、绩效依据与生效月份"></div>`  // 调研问题
+      + `</div><button class="btn pri" onclick="createChange()">创建版本</button></div>` : "",  // 提交按钮
+    `<div class="card"><h3>版本列表（${list.length}${list.length !== S.versions.length ? " / 共 " + S.versions.length : ""}）</h3>`,  // 列表卡片，筛选时显示总数
+    list.length ? versionTable(list) : `<div class="empty">没有符合筛选条件的版本</div>`,  // 表格或空状态
+    `</div>`                                                   // 卡片结束
+  ].join("");                                                  // 拼成完整 HTML
+}                                                               // 变更版本视图结束
+
+function filteredVersions(){                                    // 按筛选条件过滤版本列表（纯前端，数据量小无需请求）
+  const f = S.filter;                                          // 取当前筛选条件
+  const kw = (f.q || "").trim().toLowerCase();                  // 关键词统一小写便于忽略大小写
+  return S.versions.filter(v =>                                // 逐个判断是否保留
+    (!f.status || v.status === f.status)                        // 状态为空表示不筛选
+    && (!kw || (v.emp_id + " " + v.version_id + " " + v.operator_id + " " + v.reason).toLowerCase().includes(kw))  // 关键词命中任一字段
+  );                                                            // 过滤结束
+}                                                               // 过滤函数结束
+
+function setFilter(key, value){                                 // 修改筛选条件并重绘列表
+  S.filter[key] = value;                                        // 写入对应字段
+  render();                                                     // 只重绘主内容，不重新拉接口
+}                                                               // 筛选更新结束
+
+function resetFilter(){                                         // 清空全部筛选条件
+  S.filter = { status:"", q:"" };                               // 恢复默认
+  render();                                                     // 重绘
+}                                                               // 重置结束
+
+async function createChange(){                                  // 创建变更版本
+  const body = { emp_id:$("c-emp").value.trim(), new_base_salary_cents:Number($("c-cents").value),  // 读取表单
+                 reason:$("c-reason").value.trim(), research_question:$("c-question").value.trim() };  // 继续读取
+  try { await api("/api/v1/changes", { method:"POST", body }); await refresh(); toast("版本已创建（DRAFT）"); }  // 提交并刷新
+  catch(e) { toast(e.message, true); }                         // 显示错误
+}                                                               // 创建结束
+
+function researchOptions(){                                     // 生成可调研版本的下拉选项（仅 DRAFT）
+  const list = S.versions.filter(v => v.status === "DRAFT");   // 过滤出草稿版本
+  return list.map(v => `<option value="${esc(v.version_id)}">${esc(v.version_id.slice(0,18))}… · ${esc(v.emp_id)} · ${esc(v.reason.slice(0,16))}</option>`).join("");  // 选项
+}                                                               // 选项结束
+
+function viewResearch(){                                        // 现场调研视图
+  const last = S.research;                                     // 上次调研结果
+  return [                                                    // 数组拼装
+    `<div class="page-head"><div><h2>现场调研</h2><div class="muted">harness 多轮编排 → 本地千问 → 结构化结论 → 人工确认</div></div></div>`,  // 页头
+    `<div class="card"><h3>发起调研</h3>`,                      // 发起卡片
+    `<div class="field"><label>选择草稿版本</label><select id="r-ver">${researchOptions()}</select></div>`,  // 版本下拉
+    `<div class="field"><label>现场取证问题（与模型 ask_field 提问一致，便于答复匹配）</label><input type="text" id="r-q" value="请确认调薪生效月份、绩效书面依据及员工是否知悉"></div>`,  // 问题
+    `<div class="field"><label>现场书面答复</label><textarea id="r-a" rows="2">生效月份为次月，绩效结论有书面评级表，员工已签字知悉。</textarea></div>`,  // 答复
+    `<button class="btn pri" onclick="runResearch()">运行 harness 调研</button>`,  // 运行按钮
+    `<div class="muted" style="margin-top:8px">模型输出只写入 research_sessions，状态固定 WAIT_CONFIRM，绝不自动提交复核。</div></div>`,  // 红线说明
+    last ? `<div class="card"><h3>本轮调研轨迹（${last.rounds} 轮）</h3>`  // 结果卡片
+      + `<div class="timeline">` + last.transcript.map(t => `<div class="tl-item"><b>第 ${t.round} 轮 · ${esc(t.model_call.tool)}</b><div class="muted">${esc(JSON.stringify(t.tool_result.result).slice(0,260))}</div></div>`).join("") + `</div>`  // 时间线
+      + `<h3>结构化结论</h3><div class="pre">${esc(JSON.stringify(last.conclusion, null, 2))}</div>`  // 结论 JSON
+      + `<div style="margin-top:12px"><button class="btn ok" onclick="confirmResearch('${esc(last.version_id)}')">人工确认并采纳结论</button></div></div>` : ""  // 确认按钮
+  ].join("");                                                 // 拼成完整 HTML
+}                                                               // 调研视图结束
+
+function pickResearch(id){                                      // 从版本列表跳转调研时预选版本
+  render();                                                    // 先重绘调研页
+  const sel = $("r-ver");                                      // 取下拉框
+  if (sel) sel.value = id;                                     // 设置选中项
+}                                                               // 预选结束
+
+async function runResearch(){                                   // 运行 harness 调研
+  const id = $("r-ver")?.value;                               // 取版本 ID
+  if (!id) { toast("当前没有可调研的草稿版本", true); return; }  // 无草稿时提示
+  const q = $("r-q").value.trim();                            // 取取证问题
+  const a = $("r-a").value.trim();                            // 取书面答复
+  const field_answers = q && a ? { [q]:a } : {};              // 组装答复映射，空答复留给模型标注取证缺口
+  try {                                                        // 保护请求
+    const d = await api(`/api/v1/changes/${id}/research/run`, { method:"POST", body:{ field_answers } });  // 调调研接口
+    S.research = Object.assign({}, d, { version_id:id });     // 保存结果并带上版本 ID
+    await refresh(); go("research");                          // 刷新数据后回到调研页
+    toast("调研完成，结论待人工确认");                        // 提示
+  } catch(e) { toast(e.message, true); }                      // 显示错误
+}                                                               // 调研结束
+
+async function confirmResearch(id){                             // 人工确认调研结论
+  try { await api(`/api/v1/changes/${id}/research/confirm`, { method:"POST", body:{ confirm:true, note:"前端工作台人工确认" } });  // 显式确认
+        await refresh(); toast("结论已确认，版本可提交复核"); }  // 刷新并提示
+  catch(e) { toast(e.message, true); }                         // 显示错误
+}                                                               // 确认结束
+
+async function submitChange(id){                                // 提交版本进入双人复核
+  try { await api(`/api/v1/changes/${id}/submit`, { method:"POST" }); await refresh(); toast("已提交，等待第一复核人"); }  // 提交
+  catch(e) { toast(e.message, true); }                         // 显示错误
+}                                                               // 提交结束
+
+function viewReview(){                                          // 复核中心视图
+  const list = S.versions.filter(v => v.status === "PENDING_REVIEW" || v.status === "REVIEW_ONE");  // 待复核版本
+  return [                                                    // 数组拼装
+    `<div class="page-head"><div><h2>复核中心</h2><div class="muted">复核人不得为经办人，两人不得相同，一人只能签一次</div></div></div>`,  // 页头
+    `<div class="card"><h3>待复核版本（${list.length}）</h3>`,  // 列表卡片
+    list.length ? list.map(v => [                            // 逐版本生成卡片
+      `<div style="border:1px solid var(--line);border-radius:8px;padding:14px;margin-bottom:12px">`,  // 版本块
+      `<div style="display:flex;justify-content:space-between;align-items:center">`,  // 头部
+      `<div><b>${esc(v.version_id.slice(0,20))}…</b>　${badge(v.status)}　<span class="muted">经办人 ${esc(v.operator_id)}</span></div>`,  // 版本与状态
+      `<button class="btn" onclick="openDetail('${v.version_id}')">查看材料</button></div>`,  // 详情按钮
+      flowSteps(v),                                         // 流程步骤
+      `<div class="muted" style="margin:8px 0">变更事由：${esc(v.reason)}　｜　调研会话：${esc(v.research?.status || "—")}　｜　已有复核：${v.reviews.length}/2</div>`,  // 摘要
+      `<div class="field"><input type="text" id="cm-${esc(v.version_id)}" placeholder="复核意见（书面留痕）"></div>`,  // 意见输入
+      `<button class="btn ok" onclick="doReview('${v.version_id}','APPROVE')">通过</button>`,  // 通过
+      `<button class="btn danger" onclick="doReview('${v.version_id}','REJECT')">驳回</button>`  // 驳回
+    ].join("") + `</div>`).join("") : `<div class="empty">当前没有待复核版本</div>`,  // 空状态
+    `</div>`                                                   // 卡片结束
+  ].join("");                                                 // 拼成完整 HTML
+}                                                               // 复核视图结束
+
+async function doReview(id, decision){                          // 提交复核结论
+  const comment = $("cm-" + id)?.value || "";                 // 读取意见
+  try { await api(`/api/v1/changes/${id}/review`, { method:"POST", body:{ decision, comment } });  // 调复核接口
+        await refresh(); toast(decision === "APPROVE" ? "复核通过" : "已驳回，版本终止"); }  // 刷新并提示
+  catch(e) { toast(e.message, true); }                         // 显示错误
+}                                                               // 复核结束
+
+async function effectiveChange(id){                             // 管理员生效
+  try { await api(`/api/v1/changes/${id}/effective`, { method:"POST", body:{ note:"前端工作台生效" } });  // 调生效接口
+        await refresh(); toast("已生效，薪酬基线原子更新"); }    // 刷新并提示
+  catch(e) { toast(e.message, true); }                         // 显示错误
+}                                                               // 生效结束
+
+async function cloneChange(id){                                 // 基于被驳回版本重建草稿
+  const v = findVer(id);                                        // 取源版本，用于展示原金额线索
+  if (!v) return;                                              // 找不到就不动作
+  const yuan = window.prompt("以该驳回版本为基础重建草稿，请输入变更后月薪（元）：", "");  // 让经办人重新确认金额
+  if (yuan === null) return;                                   // 用户取消则直接退出
+  const cents = Math.round(Number(yuan) * 100);                 // 元转分，四舍五入避免浮点误差
+  if (!Number.isFinite(cents) || cents <= 0) { toast("金额必须为正数", true); return; }  // 前端先挡明显错误，后端仍会再校验
+  try {                                                        // 保护网络请求
+    const d = await api(`/api/v1/changes/${id}/clone`, { method:"POST", body:{ new_base_salary_cents: cents } });  // 调重建接口
+    closeDrawer();                                             // 先关掉源版本抽屉，避免残留旧数据
+    await refresh();                                           // 重新拉列表
+    toast("已重建草稿：" + d.version_id.slice(0, 14));          // 提示新版本 ID 前缀
+  } catch(e) { toast(e.message, true); }                       // 显示后端错误码与文案
+}                                                               // 重建结束
+
+function viewAudit(){                                           // 审计日志视图
+  const a = S.audit;                                          // 取审计数据
+  return [                                                    // 数组拼装
+    `<div class="page-head"><div><h2>审计日志</h2><div class="muted">哈希链防篡改，载荷只存摘要不存明文金额</div></div></div>`,  // 页头
+    `<div class="card"><h3>链完整性</h3><div class="kv">`,     // 链状态卡片
+    `<div class="k">校验结果</div><div>${a?.chain?.ok ? '<span class="badge st-effective">完整</span>' : '<span class="badge st-rejected">异常</span>'}</div>`,  // 结果
+    `<div class="k">记录总数</div><div>${a?.chain?.count ?? "—"} 条</div>`,  // 总数
+    `<div class="k">首个断点</div><div>${a?.chain?.broken_at ?? "无"}</div></div></div>`,  // 断点
+    `<div class="card"><h3>流水（最近 100 条）</h3>`,           // 流水卡片
+    a?.items?.length ? `<table><thead><tr><th>序号</th><th>时间</th><th>操作人</th><th>动作</th><th>对象</th><th>载荷摘要</th></tr></thead><tbody>`  // 表头
+      + a.items.map(i => `<tr><td>${i.seq}</td><td class="muted">${fmtTime(i.ts)}</td><td>${esc(i.actor_id)}</td><td><code>${esc(i.action)}</code></td><td class="muted">${esc(i.target.slice(0,16))}…</td><td class="muted">${esc(i.payload_hash.slice(0,14))}…</td></tr>`).join("")  // 每行
+      + `</tbody></table>` : `<div class="empty">暂无审计记录</div>`,  // 空状态
+    `</div>`                                                   // 卡片结束
+  ].join("");                                                 // 拼成完整 HTML
+}                                                               // 审计视图结束
+
+function viewKB(){                                              // 知识库视图
+  return [                                                    // 数组拼装
+    `<div class="page-head"><div><h2>知识库</h2><div class="muted">SQLite FTS5 trigram 全文检索，制度文档本地留存</div></div></div>`,  // 页头
+    `<div class="card"><h3>检索制度依据</h3>`,                  // 检索卡片
+    `<div style="display:flex;gap:8px"><input type="text" id="kb-q" value="薪酬调整审批规范" placeholder="输入检索词">`,  // 检索框
+    `<button class="btn pri" onclick="searchKB()">检索</button></div>`,  // 检索按钮
+    `<div style="margin-top:14px">` + (S.kbHits.length ? S.kbHits.map(h =>  // 结果列表
+      `<div style="border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:10px"><b>${esc(h.title)}</b><div class="muted">相关度 ${esc(h.score)}</div><div style="margin-top:6px">${esc(h.snippet)}</div></div>`  // 单条结果
+    ).join("") : `<div class="empty">点击检索查看制度文档</div>`) + `</div></div>`  // 空状态
+  ].join("");                                                 // 拼成完整 HTML
+}                                                               // 知识库视图结束
+
+async function searchKB(){                                      // 调用知识库检索接口
+  const q = $("kb-q")?.value.trim() || "";                    // 取检索词
+  try { const d = await api("/api/v1/kb/search?q=" + encodeURIComponent(q)); S.kbHits = d.hits; render(); toast(`命中 ${d.hits.length} 条`); }  // 检索并刷新
+  catch(e) { toast(e.message, true); }                         // 显示错误
+}                                                               // 检索结束
+
+async function openDetail(id){                                  // 打开版本详情抽屉（含历史版本链）
+  const v = findVer(id);                                       // 按 ID 取版本
+  if (!v) return;                                             // 找不到就不打开
+  S.chain = null;                                             // 清掉上一次打开的链，避免串数据
+  $("drawer").innerHTML = [                                   // 数组拼装抽屉内容
+    `<div class="drawer-head"><h2>版本详情</h2><button class="btn" onclick="closeDrawer()">关闭</button></div>`,  // 头部
+    `<div class="kv"><div class="k">版本 ID</div><div><code>${esc(v.version_id)}</code></div>`,  // ID
+    `<div class="k">状态</div><div>${badge(v.status)}</div>`,  // 状态
+    `<div class="k">员工 / 职级</div><div>${esc(v.emp_id)} / ${esc(v.after.grade || "—")}</div>`,  // 员工
+    `<div class="k">经办人</div><div>${esc(v.operator_id)}</div>`,  // 经办人
+    `<div class="k">变更事由</div><div>${esc(v.reason)}</div>`,  // 事由
+    `<div class="k">创建时间</div><div>${fmtTime(v.created_at)}</div>`,  // 创建时间
+    `<div class="k">生效时间</div><div>${fmtTime(v.effective_at)}</div></div>`,  // 生效时间
+    `<h3 style="margin-top:18px">薪酬差异</h3>`,               // 差异标题
+    `<div class="diff-box"><div><div class="muted">变更前</div><div class="amt">${esc(v.before.base_salary_display)}</div></div>`,  // 变更前
+    `<div class="muted">→</div><div><div class="muted">变更后</div><div class="amt">${esc(v.after.base_salary_display)}</div></div>`,  // 变更后
+    `<div style="margin-left:auto"><div class="muted">差额</div><div class="amt">${esc(v.diff.delta_display)}</div></div></div>`,  // 差额
+    `<h3>流程进度</h3>${flowSteps(v)}`,                       // 流程步骤
+    `<h3 style="margin-top:18px">双人复核轨迹（${v.reviews.length}/2）</h3>`,  // 复核标题
+    v.reviews.length ? `<div class="timeline">` + v.reviews.map(r =>  // 时间线
+      `<div class="tl-item"><b>第 ${r.slot} 签 · ${esc(r.reviewer_id)} · ${r.decision === "APPROVE" ? "通过" : "驳回"}</b><div class="muted">${fmtTime(r.created_at)}　${esc(r.comment || "无意见")}</div></div>`  // 单条复核
+    ).join("") + `</div>` : `<div class="empty">尚无复核记录</div>`,  // 空状态
+    `<h3 style="margin-top:18px">现场调研</h3>`,               // 调研标题
+    v.research ? `<div class="kv"><div class="k">会话</div><div><code>${esc(v.research.session_id)}</code></div><div class="k">状态</div><div>${esc(v.research.status)}</div><div class="k">确认人</div><div>${esc(v.research.confirmed_by || "未确认")}</div></div>`  // 会话信息
+      : `<div class="empty">尚未发起调研</div>`,              // 空状态
+    `<h3 style="margin-top:18px">历史版本链</h3><div id="chain-box" class="muted">加载中…</div>`,  // 先占位，异步填充
+    `<div style="margin-top:20px">${actionButtons(v)}</div>`  // 底部操作按钮
+  ].join("");                                                 // 拼成完整 HTML
+  $("drawer").classList.remove("hidden");                     // 显示抽屉
+  $("drawer-mask").classList.remove("hidden");                // 显示遮罩
+  try {                                                        // 链加载失败不能影响抽屉主体
+    const d = await api(`/api/v1/changes/${id}/chain`);        // 拉取同一员工的全部版本
+    if (!$("chain-box")) return;                               // 用户可能已切换或关闭抽屉
+    S.chain = d;                                               // 缓存链数据，供后续渲染复用
+    $("chain-box").innerHTML = chainTable(d);                  // 填充链表格
+  } catch(e) {                                                 // 网络或权限异常
+    if ($("chain-box")) $("chain-box").innerHTML = `<div class="empty">版本链加载失败：${esc(e.message)}</div>`;  // 就地提示
+  }
+}                                                               // 详情结束
+
+function chainTable(d){                                         // 渲染历史版本链表格
+  const rows = d.items.map(i =>                                // 逐版本生成一行
+    `<tr><td>${i.is_current ? "◀ " : ""}${badge(i.status)}</td>`  // 当前查看的版本加标记
+    + `<td><code>${esc(i.version_id.slice(0, 14))}…</code></td>`   // 版本 ID
+    + `<td>${esc(i.after_display)}</td><td>${esc(i.delta_display)}</td>`  // 金额与差额（已按角色脱敏）
+    + `<td class="muted">${esc(i.operator_id)}</td><td class="muted">${fmtTime(i.created_at)}</td></tr>`  // 经办人与时间
+  ).join("");                                                   // 拼接所有行
+  const cur = d.current                                    // 当前生效基线
+    ? `当前生效：v${d.current.version_no} · ${esc(d.current.base_salary_display)}`  // 有基线时展示
+    : "当前无薪酬基线";                                          // 兜底文案
+  return `<div class="muted" style="margin-bottom:8px">工号 ${esc(d.emp_id)}　${cur}</div>`  // 链头摘要
+    + `<table><thead><tr><th>状态</th><th>版本</th><th>变更后</th><th>差额</th><th>经办人</th><th>创建时间</th></tr></thead><tbody>`  // 表头
+    + rows + `</tbody></table>`;                                // 表体
+}                                                               // 链表格结束
+
+function closeDrawer(){                                         // 关闭详情抽屉
+  $("drawer").classList.add("hidden");                         // 隐藏抽屉
+  $("drawer-mask").classList.add("hidden");                    // 隐藏遮罩
+}                                                               // 关闭结束
+
+$("lg-pin").addEventListener("keydown", e => { if (e.key === "Enter") doLogin(); });  // 口令框回车即登录
+
+async function boot(){                                          // 页面加载即自动登录，直接落在工作台看板
+  try {                                                        // 未开启演示或服务不可用时退回登录页
+    const d = await api("/api/v1/auth/demo");                  // 向服务端要演示令牌，前端不持有任何口令
+    S.token = d.token;                                         // 令牌只放内存
+    S.actor = d.actor;                                         // 保存身份与角色
+    await enterApp();                                          // 进入主界面（管理员默认落工作台）
+  } catch(e) {                                                 // 任何失败都不阻塞页面
+    $("login").classList.remove("hidden");                     // 显示登录层，允许手输口令
+  }
+}                                                               // 自动登录结束
+
+boot();                                                         // 立即执行，无需用户点击
+</script>                                                       <!-- 脚本结束 -->
+</body>                                                         <!-- 页面主体结束 -->
+</html>                                                         <!-- 文档结束 -->

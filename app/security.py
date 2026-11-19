@@ -77,6 +77,28 @@ def issue_token(actor_id: str, pin: str, cfg: dict) -> dict:
             "actor": {"actor_id": user["actor_id"], "name": user["name"], "roles": user["roles"]}}  # 返回身份摘要
 
 
+def issue_demo_token(cfg: dict) -> dict:
+    """签发"打开即看板"用的演示令牌。
+
+    入参:
+        cfg: 全局配置，读取 ui.auto_login_actor 与 security.users。
+    出参:
+        与 issue_token 完全一致的 {"token", "expires_at", "actor"}。
+    失败时:
+        ui.auto_login_actor 为空或账号不在清单内时抛 BizError("DEMO_LOGIN_DISABLED", 403)，
+        不签发任何令牌，前端据此退回手输口令的登录页。
+    """
+    actor_id = str((cfg.get("ui") or {}).get("auto_login_actor") or "").strip()  # 取免登录账号，空串即关闭
+    if not actor_id:                                           # 未配置账号时必须拒绝
+        # 为什么卡在这里：这个入口等价于"跳过口令直接拿令牌"，一旦在生产被误开，
+        # 任何人都能拿到管理员身份去复核和生效；因此必须由配置显式指定账号，为空即关闭。
+        raise BizError("DEMO_LOGIN_DISABLED", "未开启免登录演示", 403)  # 统一拒绝，不下发令牌
+    user = next((u for u in cfg["security"]["users"] if u["actor_id"] == actor_id), None)  # 账号必须在白名单内
+    if user is None:                                           # 配置写错或账号被移除
+        raise BizError("DEMO_LOGIN_DISABLED", "演示账号不存在", 403)  # 明确失败，不悄悄换成别的账号
+    return issue_token(user["actor_id"], user["pin"], cfg)     # 复用同一签发逻辑，口令仍做常数时间比较
+
+
 def parse_token(token: str, cfg: dict) -> dict:
     """校验令牌签名与有效期，还原身份。
 

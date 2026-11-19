@@ -3,16 +3,17 @@
 from contextlib import asynccontextmanager                    # 定义应用启动/关闭生命周期
 
 from fastapi import Depends, FastAPI, Query, Request          # 路由、依赖、查询参数与请求对象
+from fastapi.responses import FileResponse, RedirectResponse  # 返回同源静态前端页面与根路径跳转
 
 from app import db, service                                  # 数据库上下文与业务服务层
-from app.config import load_config                          # 加载 config.yaml，代码不含任何密钥
+from app.config import load_config, resolve_path            # 加载 config.yaml 与解析前端文件路径
 from app.llm import QwenClient                              # 启动时校验本地千问地址是否合法
-from app.models import (ChangeCreateIn, EffectiveIn,        # 全部请求体模型
+from app.models import (ChangeCloneIn, ChangeCreateIn, EffectiveIn,  # 全部请求体模型
                         KBAddIn, ResearchConfirmIn,
                         ResearchRunIn, ReviewIn, TokenIn)
 from app.prompts import load_prompts                        # 启动时校验提示词文件可读
-from app.response import install_handlers, ok               # 统一响应与全局异常处理
-from app.security import require_roles                      # 角色校验依赖工厂
+from app.response import BizError, install_handlers, ok      # 统一响应与全局异常处理
+from app.security import issue_demo_token, require_roles      # 角色校验依赖工厂与演示令牌签发
 
 
 @asynccontextmanager                                          # 声明异步生命周期上下文
@@ -83,6 +84,21 @@ async def post_token(request: Request, body: TokenIn) -> dict:
     return ok(service.sign_token(request.app.state.cfg, body))  # 委托服务层校验口令
 
 
+@app.get("/api/v1/auth/demo")                                # 前端"打开即看板"的演示令牌入口
+async def get_demo_token(request: Request) -> dict:
+    """签发免登录演示令牌。
+
+    入参:
+        request: 当前请求，用于读取应用状态中的配置。
+    出参:
+        统一结构，data 为 token/expires_at/actor。
+    失败时:
+        config.yaml 的 ui.auto_login_actor 为空或账号不存在时抛 DEMO_LOGIN_DISABLED(403)，
+        前端捕获后退回手输口令的登录页，不会出现"半登录"状态。
+    """
+    return ok(issue_demo_token(request.app.state.cfg))       # 口令仍由服务端从环境变量注入
+
+
 @app.post("/api/v1/kb/documents")                            # 知识库文档入库
 async def post_kb_document(request: Request, body: KBAddIn,
                            actor: dict = Depends(require_roles("ADMIN"))) -> dict:
@@ -144,21 +160,28 @@ async def post_change(request: Request, body: ChangeCreateIn,
     return ok(data)                                        # 统一封装
 
 
-@app.get("/api/v1/changes")                                 # 版本列表
+@app.get("/api/v1/changes")                                 # 版本列表（支持筛选）
 async def get_changes(request: Request,
+                      status: str | None = Query(default=None, max_length=32),  # 状态筛选
+                      emp_id: str | None = Query(default=None, max_length=64),  # 工号筛选
+                      q: str | None = Query(default=None, max_length=100),      # 关键词筛选
                       actor: dict = Depends(require_roles("OPERATOR", "REVIEWER", "ADMIN"))) -> dict:
-    """列出全部变更版本。
+    """列出变更版本，可按状态 / 工号 / 关键词筛选。
 
     入参:
         request: 当前请求。
+        status: 可选状态筛选值，非法值返回 422。
+        emp_id: 可选工号筛选。
+        q: 可选关键词，匹配事由 / 版本 ID / 经办人。
         actor: 已校验身份，决定金额是否脱敏。
     出参:
-        统一结构，data 为版本视图列表。
+        统一结构，data 为版本视图列表（仍是数组，兼容既有前端）。
     失败时:
-        数据库读取失败返回 INTERNAL_ERROR(500)。
+        状态值非法返回 INVALID_STATUS_FILTER(422)；数据库读取失败返回 INTERNAL_ERROR(500)。
     """
     with db.session(_db_path(request)) as conn:             # 只读连接
-        data = service.list_changes(conn, request.app.state.cfg, actor)  # 查询并脱敏
+        data = service.list_changes(conn, request.app.state.cfg, actor,  # 查询并脱敏
+                                    status=status, emp_id=emp_id, keyword=q)  # 透传筛选条件
     return ok(data)                                        # 统一封装
 
 
@@ -178,6 +201,46 @@ async def get_change(request: Request, version_id: str,
     """
     with db.session(_db_path(request)) as conn:             # 只读连接
         data = service.get_change(conn, request.app.state.cfg, actor, version_id)  # 查询并脱敏
+    return ok(data)                                        # 统一封装
+
+
+@app.get("/api/v1/changes/{version_id}/chain")              # 同一员工的历史版本链
+async def get_change_chain(request: Request, version_id: str,
+                           actor: dict = Depends(require_roles("OPERATOR", "REVIEWER", "ADMIN"))) -> dict:
+    """读取某员工的历史版本链与当前薪酬基线。
+
+    入参:
+        request: 当前请求。
+        version_id: 链中任意一个版本 ID。
+        actor: 已校验身份，决定金额是否脱敏。
+    出参:
+        统一结构，data 为 {"emp_id","current","items"}。
+    失败时:
+        版本不存在返回 CHANGE_NOT_FOUND(404)。
+    """
+    with db.session(_db_path(request)) as conn:             # 只读连接
+        data = service.get_chain(conn, request.app.state.cfg, actor, version_id)  # 查询整条链
+    return ok(data)                                        # 统一封装
+
+
+@app.post("/api/v1/changes/{version_id}/clone")             # 基于被驳回版本重建草稿
+async def post_clone(request: Request, version_id: str, body: ChangeCloneIn,
+                     actor: dict = Depends(require_roles("OPERATOR", "ADMIN"))) -> dict:
+    """把被驳回的版本复制成一个新草稿。
+
+    入参:
+        request: 当前请求。
+        version_id: 源版本 ID，必须处于 REJECTED。
+        body: 可覆盖金额 / 事由 / 调研问题，全部留空则沿用原版本。
+        actor: 已通过 OPERATOR/ADMIN 校验的身份。
+    出参:
+        统一结构，data 为新草稿视图，含 source_version_id。
+    失败时:
+        源版本不存在返回 404；状态不是 REJECTED 返回 INVALID_STATUS(409)；事务回滚，源版本不变。
+    """
+    with db.session(_db_path(request)) as conn:             # 打开连接
+        with db.transaction(conn):                          # 新版本与审计同事务
+            data = service.clone_change(conn, request.app.state.cfg, actor, version_id, body)  # 执行重建
     return ok(data)                                        # 统一封装
 
 
@@ -321,3 +384,34 @@ async def get_audit_verify(request: Request,
     with db.session(_db_path(request)) as conn:             # 只读连接
         data = service.verify_audit(conn)                  # 校验整链
     return ok(data)                                        # 统一封装
+
+
+@app.get("/", include_in_schema=False)                       # 根路径跳转到前端页面，不进接口文档
+async def get_root() -> RedirectResponse:
+    """把根路径重定向到前端单页入口。
+
+    入参:
+        无。
+    出参:
+        302 重定向到 /ui。
+    失败时:
+        不会失败；前端页面本身不可用时由 /ui 返回统一错误结构。
+    """
+    return RedirectResponse(url="/ui")                     # 固定跳转，页面路径不写在配置里也不含敏感信息
+
+
+@app.get("/ui", include_in_schema=False)                     # 前端单页入口，同源提供，无需 CORS
+async def get_ui(request: Request) -> FileResponse:
+    """返回纯静态前端页面。
+
+    入参:
+        request: 当前请求，用于读取应用状态中的配置。
+    出参:
+        text/html 响应，内容为 config.yaml 中 ui.file 指向的单文件页面。
+    失败时:
+        页面文件不存在时抛 BizError("UI_NOT_FOUND", 500)，由全局处理器转成统一结构。
+    """
+    path = resolve_path(request.app.state.cfg["ui"]["file"])  # 从配置解析前端文件绝对路径
+    if not path.exists():                                  # 文件缺失不能返回空白页蒙混过去
+        raise BizError("UI_NOT_FOUND", "前端页面文件不存在", 500)  # 明确失败
+    return FileResponse(str(path), media_type="text/html; charset=utf-8")  # 显式声明中文编码
