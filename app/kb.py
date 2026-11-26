@@ -83,7 +83,10 @@ def search(conn: sqlite3.Connection, query: str, top_k: int = 3) -> list[dict[st
     if not q:                                                  # 空查询直接返回空结果
         return []                                              # 不消耗数据库资源
     k = max(1, min(int(top_k), 20))                           # 把条数夹在 1~20，防止一次拉走整库
-    if _fts_available(conn):                                   # 优先走全文索引
+    # 为什么卡在这里：trigram 分词器按 3 字符切分，检索词短于 3 个字符时 FTS5 永远匹配不到，
+    # 会出现"搜『薪酬』0 条、搜『薪酬调整』1 条"的割裂体验；短词必须直接走 LIKE 子串匹配。
+    use_fts = _fts_available(conn) and len(q) >= 3            # 只有够长才走全文索引
+    if use_fts:                                                # 优先走全文索引
         try:                                                    # 某些输入仍可能不被 trigram 接受
             rows = conn.execute(                               # bm25 越小越相关
                 "SELECT doc_id,title,content,bm25(kb_fts) AS score FROM kb_fts "

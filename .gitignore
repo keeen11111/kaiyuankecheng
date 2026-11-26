@@ -15,7 +15,8 @@ venv/
 .env
 .env.*
 
-# SQLite 运行库与临时文件，含真实业务数据
+# SQLite 运行库、检测日志与临时文件，含真实业务数据，整目录不入库
+data/
 data/*.db
 data/*.db-wal
 data/*.db-shm
